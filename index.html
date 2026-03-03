@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Persistent Data Manager</title>
+    <script src="https://cdnjs.cloudflare.com"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; background: #eef2f3; color: #333; }
+        .container { max-width: 850px; margin: auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+        .input-group { display: flex; gap: 10px; margin-bottom: 25px; flex-wrap: wrap; }
+        input, select, button { padding: 12px; border: 1px solid #ddd; border-radius: 6px; outline: none; }
+        input:focus { border-color: #007bff; }
+        button { background: #007bff; color: white; border: none; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        button:hover { background: #0056b3; }
+        .controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        table { width: 100%; border-collapse: collapse; background: #fff; }
+        th, td { border-bottom: 1px solid #eee; padding: 15px; text-align: left; }
+        th { background-color: #f8f9fa; cursor: pointer; color: #666; text-transform: uppercase; font-size: 12px; letter-spacing: 1px; }
+        th:hover { background-color: #f1f1f1; }
+        .sort.asc::after { content: " ↑"; }
+        .sort.desc::after { content: " ↓"; }
+        .delete-btn { color: #ff4d4d; cursor: pointer; font-weight: bold; border: none; background: none; }
+    </style>
+</head>
+<body>
+
+<div class="container" id="data-manager">
+    <h2>Add New Entry</h2>
+    <div class="input-group">
+        <input type="text" id="name-input" placeholder="Item Name (e.g. Project X)">
+        <select id="category-input">
+            <option value="Work">Work</option>
+            <option value="Personal">Personal</option>
+            <option value="Urgent">Urgent</option>
+        </select>
+        <button onclick="addItem()">Add to List</button>
+        <button onclick="clearAll()" style="background:#6c757d">Clear All</button>
+    </div>
+
+    <hr style="border: 0; border-top: 1px solid #eee; margin: 30px 0;">
+
+    <div class="controls">
+        <h3>Records Management</h3>
+        <div style="display:flex; gap:10px;">
+            <input class="search" placeholder="Quick search...">
+            <select id="filter-dropdown" onchange="filterByCategory()">
+                <option value="">All Categories</option>
+                <option value="Work">Work</option>
+                <option value="Personal">Personal</option>
+                <option value="Urgent">Urgent</option>
+            </select>
+        </div>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th class="sort" data-sort="name">Name</th>
+                <th class="sort" data-sort="category">Category</th>
+                <th class="sort" data-sort="date">Date Added</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody class="list" id="table-body">
+            <!-- Data loaded from LocalStorage -->
+        </tbody>
+    </table>
+</div>
+
+    <!-- ... existing table and HTML content above ... -->
+    
+    <script>
+        // 1. Initialize the List.js library to handle sorting and filtering
+        var options = {
+            valueNames: ['name', 'category', 'date']
+        };
+        var dataList = new List('data-manager', options);
+
+        // 2. Load any existing data from the browser's LocalStorage when the page opens
+        document.addEventListener('DOMContentLoaded', () => {
+            const savedData = JSON.parse(localStorage.getItem('myWebData')) || [];
+            dataList.add(savedData);
+        });
+
+        // 3. Save the current list state to LocalStorage so it persists after refresh
+        function saveToLocal() {
+            const items = dataList.items.map(item => item.values());
+            localStorage.setItem('myWebData', JSON.stringify(items));
+        }
+
+        // 4. Function to add a new item from the input fields
+        function addItem() {
+            const nameInput = document.getElementById('name-input');
+            const categoryInput = document.getElementById('category-input');
+            const dateStr = new Date().toLocaleDateString();
+
+            if (nameInput.value.trim() === "") return alert("Please enter a name!");
+
+            dataList.add({
+                name: nameInput.value,
+                category: categoryInput.value,
+                date: dateStr
+            });
+
+            saveToLocal(); // Save immediately after adding
+            nameInput.value = ""; // Clear the input box
+        }
+
+        // 5. Filter logic for the "Segregation" dropdown
+        function filterByCategory() {
+            const selected = document.getElementById('filter-dropdown').value;
+            dataList.filter(item => selected === "" ? true : item.values().category === selected);
+        }
+
+        // 6. Optional: Clear all stored data
+        function clearAll() {
+            if(confirm("This will delete all saved records. Proceed?")) {
+                dataList.clear();
+                localStorage.removeItem('myWebData');
+            }
+        }
+    </script>
+</body>
+</html>
