@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>Daily Checklist</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=Syne:wght@700;800&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    ::-webkit-scrollbar { display: none; }
+    html, body { background: #080810; min-height: 100vh; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      color: #f0ede8;
+      display: flex;
+      justify-content: center;
+    }
+
+    #app {
+      width: 100%;
+      max-width: 420px;
+      min-height: 100vh;
+      position: relative;
+      padding-bottom: 110px;
+    }
+
+    .item-row {
+      display: flex; align-items: center; gap: 14px;
+      padding: 13px 14px; border-radius: 14px;
+      background: #111118; margin-bottom: 8px;
+      cursor: pointer; transition: background 0.15s, transform 0.1s;
+      border: 1px solid #1c1c28;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+    .item-row:active { transform: scale(0.975); }
+    .item-row.done { background: #0c1f13; border-color: #1a3323; }
+    .item-row.past { cursor: default; }
+
+    .checkbox {
+      width: 22px; height: 22px; border-radius: 7px;
+      border: 1.5px solid #2a2a3a; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.2s; font-size: 12px; color: #000;
+    }
+    .checkbox.done { background: #22c55e; border-color: #22c55e; }
+    .checkbox.failed { background: #ef4444; border-color: #ef4444; color: #fff; }
+
+    .tab-btn {
+      flex: 1; padding: 9px 0; border: none; border-radius: 9px;
+      font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 500;
+      cursor: pointer; transition: all 0.2s;
+      background: transparent; color: #444;
+    }
+    .tab-btn.active { background: #1c1c28; color: #f0ede8; }
+
+    .section-label {
+      font-size: 10px; font-weight: 600; letter-spacing: 2.5px;
+      text-transform: uppercase; color: #333; margin: 18px 0 8px;
+    }
+    .macro-bar { height: 5px; background: #1c1c28; border-radius: 99px; overflow: hidden; margin-top: 5px; }
+    .macro-fill { height: 100%; border-radius: 99px; transition: width 0.4s; }
+
+    .nav-btn {
+      background: #111118; border: 1px solid #1c1c28; color: #f0ede8;
+      border-radius: 10px; padding: 7px 14px; font-family: 'DM Sans', sans-serif;
+      font-size: 13px; cursor: pointer; transition: background 0.15s;
+    }
+    .nav-btn:active { background: #1c1c28; }
+    .nav-btn:disabled { opacity: 0.3; cursor: default; }
+
+    .hist-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 14px; border-radius: 12px; background: #111118;
+      border: 1px solid #1c1c28; margin-bottom: 8px; cursor: pointer;
+    }
+    .hist-row:active { background: #1c1c28; }
+
+    .pill {
+      font-size: 11px; font-weight: 600; padding: 3px 9px;
+      border-radius: 99px; letter-spacing: 0.5px;
+    }
+
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .fade-in { animation: fadeIn 0.2s ease; }
+
+    .history-panel { display: none; }
+    .history-panel.open { display: block; }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <!-- Header -->
+  <div style="padding: 44px 18px 16px">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px">
+      <div>
+        <div style="font-family:'Syne'; font-size:11px; letter-spacing:3px; color:#444; text-transform:uppercase" id="header-label">Today</div>
+        <div style="font-family:'Syne'; font-size:28px; font-weight:800; line-height:1.1; margin-top:2px" id="header-date">—</div>
+      </div>
+      <div style="display:flex; flex-direction:column; align-items:center; gap:6px">
+        <div style="position:relative; display:inline-flex; align-items:center; justify-content:center">
+          <svg width="58" height="58" id="ring-svg">
+            <circle cx="29" cy="29" r="23" fill="none" stroke="#1c1c28" stroke-width="4.5"/>
+            <circle cx="29" cy="29" r="23" fill="none" stroke="#22c55e" stroke-width="4.5"
+              stroke-dasharray="144.51" stroke-dashoffset="144.51"
+              stroke-linecap="round"
+              style="transform:rotate(-90deg); transform-origin:center; transition:stroke-dashoffset 0.5s"
+              id="ring-circle"/>
+          </svg>
+          <div style="position:absolute; font-size:12px; font-weight:700; color:#22c55e" id="ring-pct">0%</div>
+        </div>
+        <button onclick="toggleHistory()" id="hist-toggle-btn"
+          style="background:transparent; border:1px solid #1c1c28; color:#888; border-radius:8px; padding:4px 10px; font-size:11px; cursor:pointer; font-family:'DM Sans'">
+          📅 History
+        </button>
+      </div>
+    </div>
+
+    <!-- Date nav -->
+    <div style="display:flex; align-items:center; gap:8px">
+      <button class="nav-btn" onclick="changeDate(-1)">← Prev</button>
+      <div style="flex:1; text-align:center; font-size:12px; color:#444" id="save-status">Current day</div>
+      <button class="nav-btn" id="next-btn" onclick="changeDate(1)">Next →</button>
+    </div>
+
+    <!-- Macros -->
+    <div style="background:#111118; border-radius:14px; padding:14px; margin-top:14px; border:1px solid #1c1c28">
+      <div style="display:flex; gap:14px">
+        <div style="flex:1">
+          <div style="font-size:10px; color:#444; letter-spacing:1.5px; text-transform:uppercase">Calories</div>
+          <div style="font-family:'Syne'; font-size:19px; font-weight:800; margin-top:2px">
+            <span id="cal-eaten">0</span>
+            <span style="font-size:12px; color:#444; font-family:'DM Sans'; font-weight:400"> / <span id="cal-total">1379</span></span>
+          </div>
+          <div class="macro-bar"><div class="macro-fill" id="cal-bar" style="width:0%; background:#f59e0b"></div></div>
+        </div>
+        <div style="width:1px; background:#1c1c28"></div>
+        <div style="flex:1">
+          <div style="font-size:10px; color:#444; letter-spacing:1.5px; text-transform:uppercase">Protein</div>
+          <div style="font-family:'Syne'; font-size:19px; font-weight:800; margin-top:2px">
+            <span id="prot-eaten">0</span>g
+            <span style="font-size:12px; color:#444; font-family:'DM Sans'; font-weight:400"> / <span id="prot-total">113</span>g</span>
+          </div>
+          <div class="macro-bar"><div class="macro-fill" id="prot-bar" style="width:0%; background:#3b82f6"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- History Panel -->
+  <div class="history-panel fade-in" id="history-panel" style="padding:0 18px 8px">
+    <div style="background:#0d0d18; border-radius:16px; padding:14px; border:1px solid #1c1c28">
+      <div style="font-family:'Syne'; font-size:13px; font-weight:700; margin-bottom:12px; letter-spacing:1px">📅 ALL DAYS</div>
+      <div id="history-list"></div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div style="padding:0 18px 4px">
+    <div style="display:flex; gap:5px; background:#0d0d18; border-radius:11px; padding:4px">
+      <button class="tab-btn active" onclick="switchTab('diet', this)">🥗 Diet</button>
+      <button class="tab-btn" onclick="switchTab('exercise', this)">💪 Exercise</button>
+      <button class="tab-btn" onclick="switchTab('habits', this)">✅ Habits</button>
+    </div>
+  </div>
+
+  <!-- Tab Contents -->
+  <div style="padding:0 18px">
+
+    <div class="tab-content active fade-in" id="tab-diet">
+      <div class="section-label">Morning</div>
+      <div id="meal-morning"></div>
+      <div class="section-label">Afternoon</div>
+      <div id="meal-afternoon"></div>
+      <div class="section-label">Night</div>
+      <div id="meal-night"></div>
+    </div>
+
+    <div class="tab-content fade-in" id="tab-exercise">
+      <div class="section-label">Morning</div>
+      <div id="ex-morning"></div>
+      <div class="section-label">Evening</div>
+      <div id="ex-evening"></div>
+    </div>
+
+    <div class="tab-content fade-in" id="tab-habits">
+      <div class="section-label">Non-Negotiables</div>
+      <div id="habits-list"></div>
+      <div id="moti-card" style="margin-top:20px; background:#0c1f13; border-radius:16px; padding:18px; border:1px solid #1a3323; text-align:center; display:none">
+        <div style="font-size:26px" id="moti-emoji">🔥</div>
+        <div style="font-family:'Syne'; font-size:20px; font-weight:800; letter-spacing:1.5px; margin-top:6px" id="moti-text">START SOMEWHERE</div>
+        <div style="font-size:12px; color:#555; margin-top:6px">4 weeks. Every day counts. 🔥</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Bottom Bar -->
+  <div style="position:fixed; bottom:0; left:50%; transform:translateX(-50%); width:100%; max-width:420px; background:#0a0a12; border-top:1px solid #1c1c28; padding:12px 18px 26px; display:flex; align-items:center; justify-content:space-between">
+    <div>
+      <div style="font-size:10px; color:#444; letter-spacing:1.5px; text-transform:uppercase" id="bar-label">Today's Progress</div>
+      <div style="font-family:'Syne'; font-size:17px; font-weight:800; margin-top:2px">
+        <span id="bar-done">0</span> <span style="color:#333; font-weight:400; font-size:13px">/ <span id="bar-total">17</span> tasks</span>
+      </div>
+    </div>
+    <div id="bar-pill" style="background:#1c1c28; color:#f0ede8; border-radius:11px; padding:9px 16px; font-size:13px; font-weight:600; transition:all 0.3s">
+      17 left
+    </div>
+  </div>
+
+</div>
+
+<script>
+const DIET = [
+  { id: "oats",   meal: "morning",   label: "Oats 40g",            cal: 144, protein: 7,  icon: "🥣" },
+  { id: "milk-m", meal: "morning",   label: "Milk 300ml",           cal: 180, protein: 10, icon: "🥛" },
+  { id: "dal",    meal: "afternoon", label: "Dal / Sabzi 1 bowl",   cal: 150, protein: 9,  icon: "🍲" },
+  { id: "soya",   meal: "afternoon", label: "Soya Chunks 100g",     cal: 345, protein: 52, icon: "💪" },
+  { id: "eggs",   meal: "night",     label: "4 Eggs",               cal: 280, protein: 24, icon: "🥚" },
+  { id: "fruit",  meal: "night",     label: "Fruit",                cal: 100, protein: 1,  icon: "🍎" },
+  { id: "milk-n", meal: "night",     label: "Milk 300ml",           cal: 180, protein: 10, icon: "🥛" },
+];
+const EXERCISE = [
+  { id: "run",      time: "morning", label: "30 min Run",          icon: "🏃" },
+  { id: "pushups",  time: "morning", label: "Pushups 20×3",        icon: "💥" },
+  { id: "plank",    time: "morning", label: "Plank 30s×3",         icon: "🧘" },
+  { id: "legraise", time: "evening", label: "Leg Raises ×20",      icon: "🦵" },
+  { id: "oblique",  time: "evening", label: "Oblique Crunches ×20",icon: "🔥" },
+  { id: "bicycle",  time: "evening", label: "Bicycle Crunches ×20",icon: "🚴" },
+];
+const HABITS = [
+  { id: "water",    label: "4L Water",      icon: "💧" },
+  { id: "multivit", label: "Multivitamin",  icon: "💊" },
+  { id: "nojunk",   label: "Zero Junk",     icon: "🚫" },
+  { id: "nosugar",  label: "Zero Sugar",    icon: "❌" },
+];
+
+const ALL_IDS = [...DIET.map(d=>d.id), ...EXERCISE.map(e=>e.id), ...HABITS.map(h=>h.id)];
+const TOTAL = ALL_IDS.length;
+const CAL_TOTAL = DIET.reduce((s,d)=>s+d.cal,0);
+const PROT_TOTAL = DIET.reduce((s,d)=>s+d.protein,0);
+
+// --- Helpers ---
+function toDateStr(d) {
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function fromDateStr(s) {
+  const [y,m,day] = s.split('-').map(Number);
+  return new Date(y, m-1, day);
+}
+function formatDate(d) {
+  return d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+}
+function scoreColor(p) {
+  if (p===100) return "#22c55e";
+  if (p>=70)   return "#f59e0b";
+  if (p>=40)   return "#f97316";
+  return "#ef4444";
+}
+function scoreEmoji(p) {
+  if (p===100) return "🔥";
+  if (p>=70)   return "💪";
+  if (p>=40)   return "😤";
+  return "😔";
+}
+
+// --- State ---
+let todayStr = toDateStr(new Date());
+let viewDate = todayStr;
+let allData = {};
+
+// --- localStorage ---
+function loadAll() {
+  const raw = localStorage.getItem('glow-up-data');
+  if (raw) { try { allData = JSON.parse(raw); } catch { allData = {}; } }
+}
+function saveAll() {
+  localStorage.setItem('glow-up-data', JSON.stringify(allData));
+}
+function getChecked() { return allData[viewDate] || {}; }
+
+// --- Toggle ---
+function toggle(id) {
+  if (viewDate !== todayStr) return;
+  const c = getChecked();
+  c[id] = !c[id];
+  allData[viewDate] = c;
+  saveAll();
+  renderAll();
+}
+
+// --- Date nav ---
+function changeDate(dir) {
+  const d = fromDateStr(viewDate);
+  d.setDate(d.getDate() + dir);
+  const next = toDateStr(d);
+  if (next > todayStr) return;
+  viewDate = next;
+  renderAll();
+}
+
+// --- Tab switch ---
+let currentTab = 'diet';
+function switchTab(tab, btn) {
+  currentTab = tab;
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+  document.getElementById('tab-'+tab).classList.add('active');
+  btn.classList.add('active');
+}
+
+// --- History ---
+let histOpen = false;
+function toggleHistory() {
+  histOpen = !histOpen;
+  const panel = document.getElementById('history-panel');
+  const btn = document.getElementById('hist-toggle-btn');
+  panel.classList.toggle('open', histOpen);
+  btn.textContent = histOpen ? '✕ Close' : '📅 History';
+  btn.style.background = histOpen ? '#1c1c28' : 'transparent';
+  if (histOpen) renderHistory();
+}
+
+function renderHistory() {
+  const list = document.getElementById('history-list');
+  const dates = Object.keys(allData).sort((a,b) => b.localeCompare(a));
+  if (!dates.length) {
+    list.innerHTML = '<div style="font-size:12px;color:#444;text-align:center;padding:12px 0">No history yet. Start checking off tasks!</div>';
+    return;
+  }
+  list.innerHTML = dates.map(ds => {
+    const data = allData[ds] || {};
+    const done = ALL_IDS.filter(id => data[id]).length;
+    const pct = Math.round((done/TOTAL)*100);
+    const sc = scoreColor(pct);
+    const isSelected = ds === viewDate;
+    return `<div class="hist-row" style="border:1px solid ${isSelected ? sc : '#1c1c28'}" onclick="jumpTo('${ds}')">
+      <div>
+        <div style="font-size:13px;font-weight:500">${formatDate(fromDateStr(ds))}</div>
+        <div style="font-size:11px;color:#444;margin-top:2px">${done} / ${TOTAL} tasks</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:18px">${scoreEmoji(pct)}</span>
+        <span class="pill" style="background:${sc}22;color:${sc}">${pct}%</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function jumpTo(ds) {
+  viewDate = ds;
+  histOpen = false;
+  document.getElementById('history-panel').classList.remove('open');
+  document.getElementById('hist-toggle-btn').textContent = '📅 History';
+  document.getElementById('hist-toggle-btn').style.background = 'transparent';
+  renderAll();
+}
+
+// --- Render item row ---
+function makeRow(id, icon, label, sub, isDone, isPast) {
+  const cbClass = isDone ? 'done' : (isPast && !isDone ? 'failed' : '');
+  const cbText  = isDone ? '✓'   : (isPast && !isDone ? '✕'  : '');
+  const labelColor = isDone ? '#86efac' : '#f0ede8';
+  const strike = isDone && isPast ? 'line-through' : 'none';
+  return `
+    <div class="item-row ${isDone?'done':''} ${isPast?'past':''}" onclick="toggle('${id}')">
+      <div style="font-size:20px">${icon}</div>
+      <div style="flex:1">
+        <div style="font-size:14px;font-weight:500;color:${labelColor};text-decoration:${strike}">${label}</div>
+        ${sub ? `<div style="font-size:11px;color:#444;margin-top:1px">${sub}</div>` : ''}
+      </div>
+      <div class="checkbox ${cbClass}">${cbText}</div>
+    </div>`;
+}
+
+// --- Main render ---
+function renderAll() {
+  const checked = getChecked();
+  const isToday = viewDate === todayStr;
+
+  // Header
+  document.getElementById('header-label').textContent = isToday ? 'Today' : 'Past Day';
+  document.getElementById('header-date').textContent = formatDate(fromDateStr(viewDate));
+  document.getElementById('save-status').textContent = isToday ? 'Current day' : 'Past day — read only';
+  document.getElementById('next-btn').disabled = isToday;
+
+  // Stats
+  const done = ALL_IDS.filter(id => checked[id]).length;
+  const pct  = Math.round((done/TOTAL)*100);
+  const calEaten  = DIET.filter(d=>checked[d.id]).reduce((s,d)=>s+d.cal,0);
+  const protEaten = DIET.filter(d=>checked[d.id]).reduce((s,d)=>s+d.protein,0);
+
+  // Ring
+  const circ = 2 * Math.PI * 23;
+  document.getElementById('ring-circle').style.strokeDashoffset = circ * (1 - pct/100);
+  document.getElementById('ring-circle').style.stroke = scoreColor(pct);
+  document.getElementById('ring-pct').textContent = pct + '%';
+  document.getElementById('ring-pct').style.color = scoreColor(pct);
+
+  // Macros
+  document.getElementById('cal-eaten').textContent = calEaten;
+  document.getElementById('cal-total').textContent = CAL_TOTAL;
+  document.getElementById('cal-bar').style.width = Math.min((calEaten/CAL_TOTAL)*100,100)+'%';
+  document.getElementById('prot-eaten').textContent = protEaten;
+  document.getElementById('prot-total').textContent = PROT_TOTAL;
+  document.getElementById('prot-bar').style.width = Math.min((protEaten/PROT_TOTAL)*100,100)+'%';
+
+  // Diet
+  document.getElementById('meal-morning').innerHTML   = DIET.filter(d=>d.meal==='morning').map(d=>makeRow(d.id,d.icon,d.label,`${d.cal} kcal · ${d.protein}g protein`,!!checked[d.id],!isToday)).join('');
+  document.getElementById('meal-afternoon').innerHTML = DIET.filter(d=>d.meal==='afternoon').map(d=>makeRow(d.id,d.icon,d.label,`${d.cal} kcal · ${d.protein}g protein`,!!checked[d.id],!isToday)).join('');
+  document.getElementById('meal-night').innerHTML     = DIET.filter(d=>d.meal==='night').map(d=>makeRow(d.id,d.icon,d.label,`${d.cal} kcal · ${d.protein}g protein`,!!checked[d.id],!isToday)).join('');
+
+  // Exercise
+  document.getElementById('ex-morning').innerHTML = EXERCISE.filter(e=>e.time==='morning').map(e=>makeRow(e.id,e.icon,e.label,'',!!checked[e.id],!isToday)).join('');
+  document.getElementById('ex-evening').innerHTML = EXERCISE.filter(e=>e.time==='evening').map(e=>makeRow(e.id,e.icon,e.label,'',!!checked[e.id],!isToday)).join('');
+
+  // Habits
+  document.getElementById('habits-list').innerHTML = HABITS.map(h=>makeRow(h.id,h.icon,h.label,'',!!checked[h.id],!isToday)).join('');
+
+  // Motivation card
+  const moti = document.getElementById('moti-card');
+  moti.style.display = isToday ? 'block' : 'none';
+  if (isToday) {
+    document.getElementById('moti-emoji').textContent = scoreEmoji(pct);
+    document.getElementById('moti-text').textContent  = pct===100?'PERFECT DAY!':pct>=70?'KEEP GRINDING':pct>=40?"DON'T STOP NOW":'START SOMEWHERE';
+    document.getElementById('moti-text').style.color  = scoreColor(pct);
+  }
+
+  // Bottom bar
+  document.getElementById('bar-label').textContent = isToday ? "Today's Progress" : formatDate(fromDateStr(viewDate));
+  document.getElementById('bar-done').textContent  = done;
+  document.getElementById('bar-total').textContent = TOTAL;
+  const pill = document.getElementById('bar-pill');
+  if (pct===100) {
+    pill.style.background='#22c55e'; pill.style.color='#000'; pill.style.border='none';
+    pill.textContent='🔥 Perfect!';
+  } else if (pct>=70) {
+    pill.style.background='#f59e0b22'; pill.style.color='#f59e0b'; pill.style.border='1px solid #f59e0b44';
+    pill.textContent = isToday ? `${TOTAL-done} left` : `${pct}% done`;
+  } else {
+    pill.style.background='#1c1c28'; pill.style.color='#f0ede8'; pill.style.border='none';
+    pill.textContent = isToday ? `${TOTAL-done} left` : `${pct}% done`;
+  }
+
+  // History if open
+  if (histOpen) renderHistory();
+}
+
+// --- Init ---
+loadAll();
+
+// Auto-snapshot today on load so it appears in history even if 0 tasks done
+if (!allData[todayStr]) {
+  allData[todayStr] = {};
+  saveAll();
+}
+
+renderAll();
+</script>
+</body>
+</html>
